@@ -274,6 +274,7 @@ typedef struct {
 	uint cliopener  : 1;  /* All-CLI app opener */
 	uint waitedit   : 1;  /* For ops that can't be detached, used EDITOR */
 	uint rollover   : 1;  /* Roll over at edges */
+	uint mutemode   : 1;  /* No-history mode */
 } settings;
 
 /* Contexts or workspaces */
@@ -326,6 +327,7 @@ static settings cfg = {
 	0, /* cliopener */
 	0, /* waitedit */
 	1, /* rollover */
+	0, /* mutemode */
 };
 
 static context g_ctx[CTX_MAX] __attribute__ ((aligned));
@@ -6480,6 +6482,7 @@ static void usage(void)
 		" -g      regex filters [default: string]\n"
 		" -H      show hidden files\n"
 		" -K      detect key collision\n"
+		" -m      muted history mode\n"
 		" -n      nav-as-you-type mode\n"
 		" -o      open files only on Enter\n"
 		" -p file selection file [stdout if '-']\n"
@@ -6638,7 +6641,7 @@ int main(int argc, char *argv[])
 
 	while ((opt = (env_opts_id > 0
 		       ? env_opts[--env_opts_id]
-		       : getopt(argc, argv, "aAb:cdeEgHKnop:QrRs:St:T:Vxh"))) != -1) {
+		       : getopt(argc, argv, "aAb:cdeEgHKmnop:QrRs:St:T:Vxh"))) != -1) {
 		switch (opt) {
 		case 'a':
 			cfg.mtime = 0;
@@ -6676,6 +6679,9 @@ int main(int argc, char *argv[])
 		case 'K':
 			check_key_collision();
 			return _SUCCESS;
+		case 'm':
+			cfg.mutemode = 1;
+			break;
 		case 'n':
 			cfg.filtermode = 1;
 			break;
@@ -6926,8 +6932,10 @@ int main(int argc, char *argv[])
 #else
 	rl_bind_key('\t', rl_complete);
 #endif
-	mkpath(cfgdir, ".history", g_buf);
-	read_history(g_buf);
+	if (!cfg.mutemode) {
+		mkpath(cfgdir, ".history", g_buf);
+		read_history(g_buf);
+	}
 #endif
 
 #ifndef NOMOUSE
@@ -6952,8 +6960,10 @@ int main(int argc, char *argv[])
 	exitcurses();
 
 #ifndef NORL
-	mkpath(cfgdir, ".history", g_buf);
-	write_history(g_buf);
+	if (!cfg.mutemode) {
+		mkpath(cfgdir, ".history", g_buf);
+		write_history(g_buf);
+	}
 #endif
 
 	if (cfg.pickraw) {
